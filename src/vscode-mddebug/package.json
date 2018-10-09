@@ -1,0 +1,100 @@
+{
+    "name": "megadrive-debug",
+    "displayName": "Mega Drive Debugger",
+    "version": "0.1.0",
+    "publisher": "intelorca",
+    "description": "Debug adapter for Mega Drive m68K.",
+    "author": {
+        "name": "Ted John",
+        "email": "intelorca@gmail.com"
+    },
+    "license": "MIT",
+    "keywords": [
+        "mega drive", "debug"
+    ],
+    "engines": {
+        "vscode": "^1.18.0",
+        "node": "^7.9.0"
+    },
+    "icon": "images/mock-debug-icon.png",
+    "categories": [
+        "Debuggers"
+    ],
+    "private": true,
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Microsoft/vscode-mock-debug.git"
+    },
+    "bugs": {
+        "url": "https://github.com/Microsoft/vscode-mock-debug/issues"
+    },
+    "scripts": {
+        "prepublish": "tsc -p ./src",
+        "compile": "tsc -p ./src",
+        "tslint": "tslint ./src/**/*.ts",
+        "watch": "tsc -w -p ./src",
+        "test": "mocha -u tdd ./out/tests/",
+        "postinstall": "node ./node_modules/vscode/bin/install",
+        "package": "vsce package",
+        "publish": "vsce publish"
+    },
+    "dependencies": {
+        "vscode-debugprotocol": "1.27.0"
+    },
+    "devDependencies": {
+        "@types/node": "7.0.55",
+        "@types/mocha": "2.2.48",
+        "typescript": "2.6.2",
+        "mocha": "5.0.1",
+        "vscode": "1.1.17",
+        "tslint": "5.9.1",
+        "vsce": "1.37.5"
+    },
+    "main": "./out/extension",
+    "activationEvents": [
+        "onDebug"
+    ],
+    "contributes": {
+        "breakpoints": [
+            {
+                "language": "m68k"
+            }
+        ],
+        "debuggers": [
+            {
+                "type": "megadrive",
+                "label": "Mega Drive",
+                "program": "./bin/mddebug.exe",
+                "configurationAttributes": {
+                    "launch": {
+                        "required": ["rom"],
+                        "properties": {
+                            "rom": {
+                                "type": "string",
+                                "description": "Path to the ROM file."
+                            },
+                            "map": {
+                                "type": "string",
+                                "description": "Path to the MAP file for source to address mapping."
+                            },
+                            "sram": {
+                                "type": "string",
+                                "description": "Path to the SRAM file for loading / saving SRAM data."
+                            }
+                        }
+                    }
+                },
+                "initialConfigurations": [
+                    {
+                        "type": "megadrive",
+                        "request": "launch",
+                        "name": "Launch ROM",
+                        "rom": "path/to/rom.bin",
+                        "sram": "path/to/rom.sram",
+                        "map": "path/to/map.map"
+                    }
+                ]
+            }
+        ]
+    }
+}

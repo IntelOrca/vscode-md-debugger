@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <OutputPath>..\..\bin\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+</Project>
