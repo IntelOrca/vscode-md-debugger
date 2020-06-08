@@ -10,7 +10,8 @@
     },
     "license": "MIT",
     "keywords": [
-        "mega drive", "debug"
+        "mega drive",
+        "debug"
     ],
     "engines": {
         "vscode": "^1.18.0",
@@ -67,7 +68,9 @@
                 "program": "./bin/mddebug.exe",
                 "configurationAttributes": {
                     "launch": {
-                        "required": ["rom"],
+                        "required": [
+                            "rom"
+                        ],
                         "properties": {
                             "rom": {
                                 "type": "string",

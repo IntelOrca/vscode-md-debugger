@@ -245,6 +245,16 @@ namespace IntelOrca.MegaDrive.Host
         {
             try
             {
+                s = s.Trim();
+
+                var display = "w";
+                var lastCommaIndex = s.LastIndexOf(',');
+                if (lastCommaIndex != -1)
+                {
+                    display = s.Substring(lastCommaIndex + 1).Trim();
+                    s = s.Substring(0, lastCommaIndex).Trim();
+                }
+
                 if (s.Equals("SP", StringComparison.OrdinalIgnoreCase))
                 {
                     s = "A7";
@@ -265,23 +275,28 @@ namespace IntelOrca.MegaDrive.Host
                     }
                     else if (s.StartsWith("[") && s.EndsWith("]"))
                     {
-                        var addr = s.Substring(1, s.Length - 2);
-                        if (addr.StartsWith("0x"))
+                        var addr = ParseAddress(s.Substring(1, s.Length - 2));
+                        long? memResult = null;
+                        bool unsigned = display.Contains("h");
+                        if (display.Contains("l"))
                         {
-                            addr = addr.Substring(2);
-                            var result = ReadMemory(Convert.ToUInt32(addr, 16));
-                            if (result.HasValue)
-                            {
-                                return result.ToString();
-                            }
+                            if (ReadMemory32(addr) is int r)
+                                memResult = unsigned ? (uint)r : (long)r;
                         }
-                        else
+                        else if (display.Contains("w"))
                         {
-                            var result = ReadMemory(Convert.ToUInt32(addr));
-                            if (result.HasValue)
-                            {
-                                return result.ToString();
-                            }
+                            if (ReadMemory16(addr) is short r)
+                                memResult = unsigned ? (ushort)r : (long)r;
+                        }
+                        else if (display.Contains("b"))
+                        {
+                            memResult = ReadMemory8(addr);
+                        }
+                        if (memResult != null)
+                        {
+                            return display.Contains("h")
+                                ? "0x" + memResult.Value.ToString("X2")
+                                : memResult.Value.ToString();
                         }
                     }
                 }
@@ -290,6 +305,13 @@ namespace IntelOrca.MegaDrive.Host
             {
             }
             return null;
+        }
+
+        private uint ParseAddress(string szAddress)
+        {
+            return szAddress.StartsWith("0x")
+                ? Convert.ToUInt32(szAddress.Substring(2), 16)
+                : Convert.ToUInt32(szAddress);
         }
 
         string IMegaDriveDebugController.SetExpression(string s, string valueS)
@@ -336,26 +358,43 @@ namespace IntelOrca.MegaDrive.Host
             }
         }
 
-        private int? ReadMemory(uint address)
+        private IntPtr? GetMemoryPointer(uint address)
         {
+            IntPtr result;
             if ((address & 0xFFFF0000) != 0)
             {
-                address &= 0xFFFF;
-                var mem = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
-                if (mem != IntPtr.Zero)
-                {
-                    return Marshal.ReadInt16(mem, (int)address);
-                }
+                result = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+                if (result != IntPtr.Zero)
+                    result += (int)(address & 0xFFFF);
             }
             else
             {
-                var mem = retro_get_memory_data(256);
-                if (mem != IntPtr.Zero)
-                {
-                    return Marshal.ReadInt16(mem, (int)address);
-                }
+                result = retro_get_memory_data(256);
+                if (result != IntPtr.Zero)
+                    result += (int)address;
             }
-            return null;
+            return result == IntPtr.Zero ? (IntPtr?)null : result;
+        }
+
+        private int? ReadMemory32(uint address)
+        {
+            return GetMemoryPointer(address) is IntPtr p
+                ? Marshal.ReadInt32(p, 0)
+                : (int?)null;
+        }
+
+        private short? ReadMemory16(uint address)
+        {
+            return GetMemoryPointer(address) is IntPtr p
+                ? Marshal.ReadInt16(p, 0)
+                : (short?)null;
+        }
+
+        private byte? ReadMemory8(uint address)
+        {
+            return GetMemoryPointer(address) is IntPtr p
+                ? Marshal.ReadByte(p, 0)
+                : (byte?)null;
         }
 
         private void OnDebugM68k(IntPtr pM68K)
@@ -399,6 +438,32 @@ namespace IntelOrca.MegaDrive.Host
             }
 
             // example breakpoint: 0xF070
+            // if (_debuggerPC == 0x4370)
+            // {
+            //     RecordSonicInfo();
+            // }
+        }
+
+        private static System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        private void RecordSonicInfo()
+        {
+            var time = (ushort)ReadMemory16(0xFFFFFE04);
+            if (time >= 1 && time <= 1630)
+            {
+                var x = (short)ReadMemory16(0xFFFFB008);
+                var xx = (ushort)ReadMemory16(0xFFFFB00A);
+                var y = (short)ReadMemory16(0xFFFFB00C);
+                var yy = (ushort)ReadMemory16(0xFFFFB00E);
+                var vx = (short)ReadMemory16(0xFFFFB010);
+                var vy = (short)ReadMemory16(0xFFFFB012);
+                var gv = (short)ReadMemory16(0xFFFFB014);
+                var ang = (byte)ReadMemory8(0xFFFFB027);
+                sb.Append($"{time},{x},0x{xx:X4},{y},0x{yy:X4},{vx},{vy},{gv},0x{ang:X2}\n");
+            }
+            else if (time == 1631)
+            {
+                System.IO.File.WriteAllText(@"C:\Users\Ted\Desktop\data.txt", sb.ToString());
+            }
         }
 
         private int GetInstructionLength(uint address)

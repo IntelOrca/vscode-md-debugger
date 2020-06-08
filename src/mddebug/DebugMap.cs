@@ -26,7 +26,7 @@ namespace IntelOrca.MegaDrive.Debugger
 
         public DebugMapping? GetMapping(string path, int line)
         {
-            return _lineMap.TryGetValue((path, line), out var result) ? result : default(DebugMapping?);
+            return _lineMap.TryGetValue((path.ToLowerInvariant(), line), out var result) ? result : default(DebugMapping?);
         }
 
         public uint? GetSymbolAddress(string name)
@@ -38,7 +38,7 @@ namespace IntelOrca.MegaDrive.Debugger
         {
             var fileRegex = new Regex(@"File\s(.+)", RegexOptions.Compiled);
             var mappingRegex = new Regex(@"(\d+):([0-9A-F]+)", RegexOptions.Compiled);
-            var symbolRegex = new Regex(@"^(\S+)\s+\S+\s+(\S+)\s+\S+\s+([0-9]+)", RegexOptions.Compiled);
+            var symbolRegex = new Regex(@"^(\S+)\s+\S+\s+([0-9A-Fa-f]+)\s+\S+\s+([0-9]+)", RegexOptions.Compiled);
 
             string currentFile = null;
             var mappings = new List<DebugMapping>();
@@ -76,7 +76,7 @@ namespace IntelOrca.MegaDrive.Debugger
             {
                 if (!_addressMap.ContainsKey(mapping.Address))
                 {
-                    _lineMap[(mapping.Path, mapping.Line)] = mapping;
+                    _lineMap[(mapping.Path.ToLowerInvariant(), mapping.Line)] = mapping;
                     _addressMap[mapping.Address] = mapping;
                 }
             }

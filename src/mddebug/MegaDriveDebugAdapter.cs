@@ -138,6 +138,11 @@ namespace IntelOrca.MegaDrive.Debugger
             };
         }
 
+        protected override SetExceptionBreakpointsResponse HandleSetExceptionBreakpointsRequest(SetExceptionBreakpointsArguments arguments)
+        {
+            return new SetExceptionBreakpointsResponse();
+        }
+
         protected override ResponseBody HandleProtocolRequest(string requestType, object requestArgs)
         {
             return base.HandleProtocolRequest(requestType, requestArgs);

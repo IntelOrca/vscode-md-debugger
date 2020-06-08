@@ -33,6 +33,8 @@ namespace IntelOrca.MegaDrive.Host
 
         public MegaDriveWindow()
         {
+            SDL_SetHintWithPriority(SDL_HINT_RENDER_SCALE_QUALITY, "0", SDL_HintPriority.SDL_HINT_OVERRIDE);
+
             _window = InitialiseWindow();
             _renderer = SDL_CreateRenderer(_window, 0, SDL_RendererFlags.SDL_RENDERER_ACCELERATED | SDL_RendererFlags.SDL_RENDERER_PRESENTVSYNC);
             _emulationTexture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGB565, (int)SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING, 320, 224);
@@ -73,7 +75,7 @@ namespace IntelOrca.MegaDrive.Host
 
             // Create the window, renderer etc.
             var windowFlags = SDL_WindowFlags.SDL_WINDOW_RESIZABLE | SDL_WindowFlags.SDL_WINDOW_ALLOW_HIGHDPI;
-            var window = SDL_CreateWindow("Micro Machines", x, y, w, h, windowFlags);
+            var window = SDL_CreateWindow("MEGADRIVE EMULATOR", x, y, w, h, windowFlags);
             SetIcon(window);
             return window;
         }
