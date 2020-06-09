@@ -11,23 +11,24 @@
     "license": "MIT",
     "keywords": [
         "mega drive",
+        "genesis",
         "debug"
     ],
     "engines": {
         "vscode": "^1.18.0",
         "node": "^7.9.0"
     },
-    "icon": "images/mock-debug-icon.png",
+    "icon": "images/icon.png",
     "categories": [
         "Debuggers"
     ],
     "private": true,
     "repository": {
         "type": "git",
-        "url": "https://github.com/Microsoft/vscode-mock-debug.git"
+        "url": "https://github.com/IntelOrca/vscode-md-debugger.git"
     },
     "bugs": {
-        "url": "https://github.com/Microsoft/vscode-mock-debug/issues"
+        "url": "https://github.com/IntelOrca/vscode-md-debugger/issues"
     },
     "scripts": {
         "prepublish": "tsc -p ./src",
