@@ -1,0 +1,37 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  windows:
+    name: Windows
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Build mddebug
+      shell: cmd
+      env:
+        CONFIGURATION: Release
+      run: |
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Common7\Tools\VsDevCmd.bat"
+        msbuild mddebug.sln /t:restore
+        msbuild mddebug.sln
+    - name: Get genesis_plus_gx_libretro.dll
+      shell: cmd
+      run: curl -Lo bin\genesis_plus_gx_libretro.dll https://github.com/IntelOrca/Genesis-Plus-GX/releases/download/v1.0/genesis_plus_gx_libretro.dll
+    - name: Get SDL2
+      shell: cmd
+      run: |
+        curl -Lo SDL2.zip https://www.libsdl.org/release/SDL2-2.0.12-win32-x64.zip
+        7z x SDL2.zip
+        move SDL2.dll bin
+    - name: Build vscode extension
+      run: |
+        move bin src\vscode-mddebug
+        cd src\vscode-mddebug
+        npm install
+        npm run package
+    - name: Upload artefacts
+      uses: actions/upload-artifact@v2-preview
+      with:
+        name: "vsix"
+        path: src/vscode-mddebug/*.vsix
