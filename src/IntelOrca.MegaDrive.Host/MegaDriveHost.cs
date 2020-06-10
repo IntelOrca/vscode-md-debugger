@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
@@ -161,12 +162,18 @@ namespace IntelOrca.MegaDrive.Host
 
         private event EventHandler<string> _onStateChanged;
         private uint _debuggerPC;
+        private uint _debuggerSP;
         private ImmutableArray<uint> _debuggerBreakpoints;
         private uint? _stepOverBreakpoint;
         private uint? _stepOutTargetSP;
         private int _breakIn;
         private M68K _m68k;
+        private Stack<MegaDriveStackFrame> _callStack = new Stack<MegaDriveStackFrame>();
+        private bool _nextInstructionIsBranch;
+        private bool _nextInstructionIsReturn;
         private volatile bool _debuggerRunning = true;
+
+        public Stack<MegaDriveStackFrame> CallStack => _callStack;
 
         private void Resume()
         {
@@ -198,6 +205,7 @@ namespace IntelOrca.MegaDrive.Host
             set => _debuggerBreakpoints = value;
         }
 
+        uint IMegaDriveDebugController.SP => _m68k.GetRegister(M68K_REG.A7);
         uint IMegaDriveDebugController.PC => _debuggerPC;
 
         bool IMegaDriveDebugController.Running => _debuggerRunning;
@@ -361,7 +369,7 @@ namespace IntelOrca.MegaDrive.Host
         private IntPtr? GetMemoryPointer(uint address)
         {
             IntPtr result;
-            if ((address & 0xFFFF0000) != 0)
+            if ((address & 0xFF000000) != 0)
             {
                 result = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
                 if (result != IntPtr.Zero)
@@ -376,21 +384,26 @@ namespace IntelOrca.MegaDrive.Host
             return result == IntPtr.Zero ? (IntPtr?)null : result;
         }
 
-        private int? ReadMemory32(uint address)
+        public int? ReadMemory32(uint address)
         {
             return GetMemoryPointer(address) is IntPtr p
-                ? Marshal.ReadInt32(p, 0)
+                ? WordSwap(Marshal.ReadInt32(p, 0))
                 : (int?)null;
         }
 
-        private short? ReadMemory16(uint address)
+        private static int WordSwap(int value)
+        {
+            return (int)(((uint)value << 16) | ((uint)value >> 16));
+        }
+
+        public short? ReadMemory16(uint address)
         {
             return GetMemoryPointer(address) is IntPtr p
                 ? Marshal.ReadInt16(p, 0)
                 : (short?)null;
         }
 
-        private byte? ReadMemory8(uint address)
+        public byte? ReadMemory8(uint address)
         {
             return GetMemoryPointer(address) is IntPtr p
                 ? Marshal.ReadByte(p, 0)
@@ -401,6 +414,30 @@ namespace IntelOrca.MegaDrive.Host
         {
             _m68k = new M68K(pM68K);
             _debuggerPC = _m68k.PC;
+            _debuggerSP = _m68k.GetRegister(M68K_REG.A7);
+
+            if (_nextInstructionIsBranch)
+            {
+                _nextInstructionIsBranch = false;
+                _callStack.Push(new MegaDriveStackFrame()
+                {
+                    SP = _debuggerSP,
+                    SubroutineAddress = _debuggerPC,
+                    ReturnAddress = (uint)(ReadMemory32(_debuggerSP) ?? 0)
+                });
+            }
+            else if (_nextInstructionIsReturn)
+            {
+                _nextInstructionIsReturn = false;
+                _callStack.Pop();
+            }
+
+            // If SP is manually edited, correct the call stack
+            while (_callStack.Count > 0 && _debuggerSP > _callStack.Peek().SP)
+            {
+                _callStack.Pop();
+            }
+
             if (_debuggerPC == _stepOverBreakpoint)
             {
                 _stepOverBreakpoint = null;
@@ -409,6 +446,19 @@ namespace IntelOrca.MegaDrive.Host
             else if (!_debuggerBreakpoints.IsDefaultOrEmpty && _debuggerBreakpoints.Contains(_debuggerPC))
             {
                 Pause("breakpoint");
+            }
+
+            if (ReadMemory16(_debuggerPC) is short instr)
+            {
+                if ((instr & 0b11111111_00000000) == 0b01100001_00000000 || // BSR
+                    (instr & 0b1111111111_000000) == 0b0100111010_000000)   // JSR
+                {
+                    _nextInstructionIsBranch = true;
+                }
+                else if (instr == 0b0100111001110101)
+                {
+                    _nextInstructionIsReturn = true;
+                }
             }
 
             if (_stepOutTargetSP.HasValue)
@@ -436,12 +486,6 @@ namespace IntelOrca.MegaDrive.Host
                     Pause("step");
                 }
             }
-
-            // example breakpoint: 0xF070
-            // if (_debuggerPC == 0x4370)
-            // {
-            //     RecordSonicInfo();
-            // }
         }
 
         private static System.Text.StringBuilder sb = new System.Text.StringBuilder();
@@ -509,5 +553,12 @@ namespace IntelOrca.MegaDrive.Host
         }
 
         #endregion
+    }
+
+    public struct MegaDriveStackFrame
+    {
+        public uint SP { get; set; }
+        public uint SubroutineAddress { get; set; }
+        public uint ReturnAddress { get; set; }
     }
 }

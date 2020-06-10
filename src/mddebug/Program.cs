@@ -7,7 +7,9 @@ namespace mddebug
     {
         public static void Main(string[] args)
         {
-            // System.Diagnostics.Debugger.Launch();
+#if DEBUG
+            System.Diagnostics.Debugger.Launch();
+#endif
             var adapter = new MegaDriveDebugAdapter(Console.OpenStandardInput(), Console.OpenStandardOutput());
             adapter.Protocol.Run();
             adapter.Protocol.WaitForReader();

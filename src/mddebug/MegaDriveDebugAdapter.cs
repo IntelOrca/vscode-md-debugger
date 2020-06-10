@@ -117,25 +117,42 @@ namespace IntelOrca.MegaDrive.Debugger
         protected override StackTraceResponse HandleStackTraceRequest(StackTraceArguments arguments)
         {
             var stackFrames = new List<StackFrame>();
-            var frame = new StackFrame();
 
-            var mapping = DebugMap?.GetMapping(Controller.PC);
-            if (mapping.HasValue)
+            var frames = Controller.CallStack.ToArray();
+            if (frames.Length > 0)
             {
-                frame.Line = mapping.Value.Line;
-                frame.Name = "main";
-                frame.Source = new Source()
-                {
-                    Path = mapping.Value.Path
-                };
+                PushStackFrame(Controller.PC, frames[0].SubroutineAddress);
+            }
+            for (int i = 1; i < frames.Length; i++)
+            {
+                PushStackFrame(frames[i - 1].ReturnAddress, frames[i].SubroutineAddress);
             }
 
-            stackFrames.Add(frame);
             return new StackTraceResponse()
             {
                 StackFrames = stackFrames,
-                TotalFrames = 1
+                TotalFrames = stackFrames.Count
             };
+
+            void PushStackFrame(uint address, uint subroutine)
+            {
+                var frame = new StackFrame();
+                var mapping = DebugMap?.GetMapping(address);
+                if (mapping.HasValue)
+                {
+                    frame.Line = mapping.Value.Line;
+                    frame.Name = DebugMap.FindNearestLabel(subroutine) ?? "???";
+                    frame.Source = new Source()
+                    {
+                        Path = mapping.Value.Path
+                    };
+                }
+                else
+                {
+                    frame.Name = "???";
+                }
+                stackFrames.Add(frame);
+            }
         }
 
         protected override SetExceptionBreakpointsResponse HandleSetExceptionBreakpointsRequest(SetExceptionBreakpointsArguments arguments)

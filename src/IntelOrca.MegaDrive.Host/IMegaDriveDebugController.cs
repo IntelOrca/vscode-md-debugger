@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 
 namespace IntelOrca.MegaDrive.Host
@@ -8,6 +9,8 @@ namespace IntelOrca.MegaDrive.Host
         event EventHandler<string> OnStateChanged;
 
         ImmutableArray<uint> Breakpoints { get; set; }
+        Stack<MegaDriveStackFrame> CallStack { get; }
+        uint SP { get; }
         uint PC { get; }
         bool Running { get; }
 
@@ -19,5 +22,9 @@ namespace IntelOrca.MegaDrive.Host
 
         string Evaluate(string s);
         string SetExpression(string name, string value);
+
+        byte? ReadMemory8(uint address);
+        short? ReadMemory16(uint address);
+        int? ReadMemory32(uint address);
     }
 }

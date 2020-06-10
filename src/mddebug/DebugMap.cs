@@ -10,6 +10,7 @@ namespace IntelOrca.MegaDrive.Debugger
         private Dictionary<(string, int), DebugMapping> _lineMap = new Dictionary<(string, int), DebugMapping>();
         private Dictionary<uint, DebugMapping> _addressMap = new Dictionary<uint, DebugMapping>();
         private Dictionary<string, uint> _symbolMap = new Dictionary<string, uint>(StringComparer.OrdinalIgnoreCase);
+        private List<(uint, string)> _addressToSymbolMap = new List<(uint, string)>();
 
         public DebugMap(string path)
         {
@@ -32,6 +33,26 @@ namespace IntelOrca.MegaDrive.Debugger
         public uint? GetSymbolAddress(string name)
         {
             return _symbolMap.TryGetValue(name, out var result) ? result : (uint?)null;
+        }
+
+        public string FindNearestLabel(uint address)
+        {
+            var result = _addressToSymbolMap.BinarySearch(
+                (address, (string)null),
+                Comparer<(uint, string)>.Create((a, b) => (int)(a.Item1 - b.Item1)));
+            if (result >= 0)
+            {
+                return _addressToSymbolMap[result].Item2;
+            }
+            else
+            {
+                var index = -result - 2;
+                if (index >= 0 && index < _addressToSymbolMap.Count)
+                {
+                    return _addressToSymbolMap[index].Item2;
+                }
+                return null;
+            }
         }
 
         private void Parse(TextReader textReader)
@@ -92,11 +113,15 @@ namespace IntelOrca.MegaDrive.Debugger
                     var isAddress = int.Parse(match.Groups[3].Value);
                     if (isAddress == 1)
                     {
-                        var address = Convert.ToUInt64(value, 16);
-                        _symbolMap[name] = (uint)(address & 0xFFFFFFFF);
+                        var parsedAddress = Convert.ToUInt64(value, 16);
+                        var address = (uint)(parsedAddress & 0xFFFFFFFF);
+                        _symbolMap[name] = address;
+                        _addressToSymbolMap.Add((address, name));
                     }
                 }
             }
+
+            _addressToSymbolMap.Sort((a, b) => (int)(a.Item1 - b.Item1));
         }
     }
 }
