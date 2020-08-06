@@ -27,9 +27,13 @@ namespace IntelOrca.MegaDrive.Host
 
         private uint _audioDevice;
 
-        private bool _refreshVideo;
         private uint _lastCursorMoveTick;
         private uint _lastSramSaveTick;
+
+        private MegaDriveHost _host;
+
+        protected bool FastForward { get; set; }
+        protected bool RefreshVideo { get; set; }
 
         public MegaDriveWindow()
         {
@@ -212,6 +216,7 @@ namespace IntelOrca.MegaDrive.Host
         {
             InitialiseAudio((int)host.SampleRate);
 
+            _host = host;
             host.Client = this;
             var tickWait = (uint)Math.Floor(1000.0 / host.FPS);
             var lastTicks = 0U;
@@ -227,12 +232,12 @@ namespace IntelOrca.MegaDrive.Host
                     lastTicks = ticks;
                     if (!ff || ticks > lastRefreshVideo + 30)
                     {
-                        _refreshVideo = true;
+                        RefreshVideo = true;
                         lastRefreshVideo = ticks;
                     }
                     else
                     {
-                        _refreshVideo = false;
+                        RefreshVideo = false;
                     }
 
                     if (_lastCursorMoveTick + CURSOR_HIDE_DELAY < ticks)
@@ -261,9 +266,9 @@ namespace IntelOrca.MegaDrive.Host
 
                     SDL_PumpEvents();
                     UpdateKeyboardState();
-                    host.Update();
+                    OnUpdate();
 
-                    ff = GetKeyState(SDL_Scancode.SDL_SCANCODE_BACKSPACE);
+                    ff = FastForward || GetKeyState(SDL_Scancode.SDL_SCANCODE_BACKSPACE);
                     if (ff)
                     {
                         SDL_ClearQueuedAudio(_audioDevice);
@@ -315,6 +320,11 @@ namespace IntelOrca.MegaDrive.Host
             return quit;
         }
 
+        protected virtual void OnUpdate()
+        {
+            _host.Update();
+        }
+
         private void UpdateKeyboardState()
         {
             var keys = SDL_GetKeyboardState(out _keyboardStateCount);
@@ -335,7 +345,7 @@ namespace IntelOrca.MegaDrive.Host
             return _keyboardState[index] != 0;
         }
 
-        public bool OnInputState(uint port, uint id)
+        public virtual bool OnInputState(uint port, uint id)
         {
             return
                 OnInputStateController(port, id) ||
@@ -420,7 +430,7 @@ namespace IntelOrca.MegaDrive.Host
 
         public unsafe void OnVideoRefresh(Span<byte> srcPixels, int width, int height, int srcPitch)
         {
-            if (!_refreshVideo)
+            if (!RefreshVideo)
             {
                 return;
             }
@@ -481,7 +491,10 @@ namespace IntelOrca.MegaDrive.Host
         {
             if (data != IntPtr.Zero && frames != IntPtr.Zero)
             {
-                SDL_QueueAudio(_audioDevice, data, (uint)frames * 4);
+                if (RefreshVideo)
+                {
+                    SDL_QueueAudio(_audioDevice, data, (uint)frames * 4);
+                }
             }
             return frames;
         }
