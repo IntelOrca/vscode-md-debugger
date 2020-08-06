@@ -368,18 +368,29 @@ namespace IntelOrca.MegaDrive.Host
 
         private IntPtr? GetMemoryPointer(uint address)
         {
-            IntPtr result;
+            var result = IntPtr.Zero;
             if ((address & 0xFF000000) != 0)
             {
-                result = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
-                if (result != IntPtr.Zero)
-                    result += (int)(address & 0xFFFF);
+                address &= 0xFFFF;
+                if (address < (uint)retro_get_memory_size(RETRO_MEMORY_SYSTEM_RAM))
+                {
+                    result = retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+                    if (result != IntPtr.Zero)
+                    {
+                        result += (int)address;
+                    }
+                }
             }
             else
             {
-                result = retro_get_memory_data(256);
-                if (result != IntPtr.Zero)
-                    result += (int)address;
+                if (address < (uint)retro_get_memory_size(256))
+                {
+                    result = retro_get_memory_data(256);
+                    if (result != IntPtr.Zero)
+                    {
+                        result += (int)address;
+                    }
+                }
             }
             return result == IntPtr.Zero ? (IntPtr?)null : result;
         }
@@ -429,13 +440,19 @@ namespace IntelOrca.MegaDrive.Host
             else if (_nextInstructionIsReturn)
             {
                 _nextInstructionIsReturn = false;
-                _callStack.Pop();
+                if (_callStack.Count > 0)
+                {
+                    _callStack.Pop();
+                }
             }
 
             // If SP is manually edited, correct the call stack
             while (_callStack.Count > 0 && _debuggerSP > _callStack.Peek().SP)
             {
-                _callStack.Pop();
+                if (_callStack.Count > 0)
+                {
+                    _callStack.Pop();
+                }
             }
 
             if (_debuggerPC == _stepOverBreakpoint)
