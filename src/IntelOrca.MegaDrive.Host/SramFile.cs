@@ -3,13 +3,13 @@ using System.IO;
 
 namespace IntelOrca.MegaDrive.Host
 {
-    public class Sram
+    public class SramFile : ISram
     {
         private readonly MegaDriveHost _host;
         private readonly string _path;
         private byte[] _cached;
 
-        public Sram(MegaDriveHost host, string path)
+        public SramFile(MegaDriveHost host, string path)
         {
             _host = host;
             _path = path;

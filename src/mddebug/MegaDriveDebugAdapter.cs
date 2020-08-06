@@ -75,7 +75,7 @@ namespace IntelOrca.MegaDrive.Debugger
             var mapPath = (string)arguments.ConfigurationProperties["map"];
 
             Host.LoadGame(romPath);
-            var sram = new Sram(Host, sramPath);
+            var sram = new SramFile(Host, sramPath);
             sram.Load();
             DebugMap = new DebugMap(mapPath);
             HostWindowCTS = new CancellationTokenSource();

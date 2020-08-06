@@ -18,8 +18,9 @@ namespace IntelOrca.MegaDrive.Host
         private readonly List<Delegate> _savedDelegates = new List<Delegate>();
         private bool _disposed;
         private retro_system_av_info _avInfo;
+        private bool _gameLoaded;
 
-        public IMegaDriveClient Client { get; set; }
+        public IMegaDriveIOClient Client { get; set; }
         public double FPS => _avInfo.timing.fps;
         public double SampleRate => _avInfo.timing.sample_rate;
 
@@ -75,6 +76,7 @@ namespace IntelOrca.MegaDrive.Host
                     throw new Exception($"Unable to load game: {path}");
                 }
                 retro_get_system_av_info(out _avInfo);
+                _gameLoaded = true;
             }
             finally
             {
@@ -84,7 +86,10 @@ namespace IntelOrca.MegaDrive.Host
 
         public void Update()
         {
-            retro_run();
+            if (_gameLoaded)
+            {
+                retro_run();
+            }
         }
 
         private bool OnEnvironment(uint cmd, IntPtr data)
@@ -419,6 +424,18 @@ namespace IntelOrca.MegaDrive.Host
             return GetMemoryPointer(address) is IntPtr p
                 ? Marshal.ReadByte(p, 0)
                 : (byte?)null;
+        }
+
+        public unsafe int ReadMemory(uint address, Span<byte> buffer)
+        {
+            if (GetMemoryPointer(address) is IntPtr p)
+            {
+                var ptr = (byte*)p;
+                var src = new ReadOnlySpan<byte>(ptr, buffer.Length);
+                src.CopyTo(buffer);
+                return src.Length;
+            }
+            return 0;
         }
 
         private void OnDebugM68k(IntPtr pM68K)

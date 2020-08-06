@@ -6,7 +6,7 @@ using static SDL2.SDL;
 
 namespace IntelOrca.MegaDrive.Host
 {
-    public class MegaDriveWindow : IDisposable, IMegaDriveClient
+    public class MegaDriveWindow : IDisposable, IMegaDriveIOClient
     {
         private const int MD_WIDTH = 320;
         private const int MD_HEIGHT = 224;
@@ -26,6 +26,7 @@ namespace IntelOrca.MegaDrive.Host
         private uint _lastControllerCheck;
 
         private uint _audioDevice;
+        private int _audioSampleRate;
 
         private uint _lastCursorMoveTick;
         private uint _lastSramSaveTick;
@@ -41,7 +42,7 @@ namespace IntelOrca.MegaDrive.Host
 
             _window = InitialiseWindow();
             _renderer = SDL_CreateRenderer(_window, 0, SDL_RendererFlags.SDL_RENDERER_ACCELERATED | SDL_RendererFlags.SDL_RENDERER_PRESENTVSYNC);
-            _emulationTexture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGB565, (int)SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING, 320, 224);
+            _emulationTexture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_RGB565, (int)SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING, 320, 448);
 
             // Hide the cursor
             SDL_ShowCursor(0);
@@ -54,7 +55,7 @@ namespace IntelOrca.MegaDrive.Host
             Dispose();
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             if (!_disposed)
             {
@@ -74,8 +75,8 @@ namespace IntelOrca.MegaDrive.Host
 
             // Find the best window size for the screen
             var (w, h) = GetBestSize();
-            var x = SDL_WINDOWPOS_CENTERED_DISPLAY(1);
-            var y = SDL_WINDOWPOS_CENTERED_DISPLAY(1);
+            var x = SDL_WINDOWPOS_CENTERED_DISPLAY(0);
+            var y = SDL_WINDOWPOS_CENTERED_DISPLAY(0);
 
             // Create the window, renderer etc.
             var windowFlags = SDL_WindowFlags.SDL_WINDOW_RESIZABLE | SDL_WindowFlags.SDL_WINDOW_ALLOW_HIGHDPI;
@@ -204,18 +205,40 @@ namespace IntelOrca.MegaDrive.Host
                 channels = 2
             };
             _audioDevice = SDL_OpenAudioDevice(null, 0, ref want, out var have, 0);
-            SDL_PauseAudioDevice(_audioDevice, 0);
+            if (_audioDevice != 0)
+            {
+                _audioSampleRate = sampleRate;
+                SDL_PauseAudioDevice(_audioDevice, 0);
+            }
         }
 
         private void DisposeAudio()
         {
-            SDL_CloseAudioDevice(_audioDevice);
+            if (_audioDevice != 0)
+            {
+                SDL_CloseAudioDevice(_audioDevice);
+            }
         }
 
-        public void Run(Sram sram, MegaDriveHost host, CancellationToken ct = default)
+        private void RecheckAudio()
         {
-            InitialiseAudio((int)host.SampleRate);
+            var sampleRate = (int)_host.SampleRate;
+            if (_audioSampleRate != sampleRate)
+            {
+                InitialiseAudio(sampleRate);
+            }
+        }
 
+        public void ClearAudio()
+        {
+            if (_audioDevice != 0)
+            {
+                SDL_ClearQueuedAudio(_audioDevice);
+            }
+        }
+
+        public void Run(ISram sram, MegaDriveHost host, CancellationToken ct = default)
+        {
             _host = host;
             host.Client = this;
             var tickWait = (uint)Math.Floor(1000.0 / host.FPS);
@@ -267,11 +290,12 @@ namespace IntelOrca.MegaDrive.Host
                     SDL_PumpEvents();
                     UpdateKeyboardState();
                     OnUpdate();
+                    RecheckAudio();
 
                     ff = FastForward || GetKeyState(SDL_Scancode.SDL_SCANCODE_BACKSPACE);
                     if (ff)
                     {
-                        SDL_ClearQueuedAudio(_audioDevice);
+                        ClearAudio();
                     }
 
                     quit = ProcessEvents(host, ticks);
