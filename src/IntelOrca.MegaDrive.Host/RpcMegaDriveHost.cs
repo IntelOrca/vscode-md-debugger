@@ -171,6 +171,25 @@ namespace IntelOrca.MegaDrive.Host
             return false;
         }
 
+        public void LoadState(string path)
+        {
+            _dispatcher.Enqueue(() =>
+            {
+                var data = File.ReadAllBytes(path);
+                _host.LoadState(data);
+            });
+        }
+
+        public void SaveState(string path)
+        {
+            _dispatcher.Enqueue(() =>
+            {
+                using var fs = new FileStream(path, FileMode.Create);
+                var data = _host.SaveState();
+                fs.Write(data, 0, data.Length);
+            });
+        }
+
         public class RpcTarget
         {
             private RpcMegaDriveHost _parent;
@@ -185,11 +204,6 @@ namespace IntelOrca.MegaDrive.Host
                 Console.WriteLine($"Loading {path}");
                 _parent.Start(path);
                 return Task.CompletedTask;
-            }
-
-            public void LoadState(string path)
-            {
-                throw new NotImplementedException();
             }
 
             public Task NextAsync(int frames = 1, uint state = 0, int port = 0)
@@ -225,9 +239,16 @@ namespace IntelOrca.MegaDrive.Host
                 return Task.CompletedTask;
             }
 
-            public void SaveState(string path)
+            public Task LoadStateAsync(string path)
             {
-                throw new NotImplementedException();
+                _parent.LoadState(path);
+                return Task.CompletedTask;
+            }
+
+            public Task SaveStateAsync(string path)
+            {
+                _parent.SaveState(path);
+                return Task.CompletedTask;
             }
 
             public void SetInput(int port, uint state)

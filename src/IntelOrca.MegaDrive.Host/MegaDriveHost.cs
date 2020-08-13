@@ -163,6 +163,31 @@ namespace IntelOrca.MegaDrive.Host
             throw new NotImplementedException();
         }
 
+        public unsafe byte[] SaveState()
+        {
+            var len = retro_serialize_size().ToInt32();
+            var data = new byte[len];
+            fixed (byte* bp = data)
+            {
+                if (!retro_serialize(new IntPtr(bp), new IntPtr(data.Length)))
+                {
+                    throw new Exception("Failed to serialize game state.");
+                }
+            }
+            return data;
+        }
+
+        public unsafe void LoadState(ReadOnlySpan<byte> data)
+        {
+            fixed (byte* bp = data)
+            {
+                if (!retro_unserialize(new IntPtr(bp), new IntPtr(data.Length)))
+                {
+                    throw new Exception("Failed to unserialize game state.");
+                }
+            }
+        }
+
         #region Debugger
 
         private event EventHandler<string> _onStateChanged;

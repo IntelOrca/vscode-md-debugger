@@ -145,5 +145,14 @@ namespace IntelOrca.MegaDrive.Host
 
         [DllImport(LibraryFileName, CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr retro_get_memory_size(uint id);
+
+        [DllImport(LibraryFileName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr retro_serialize_size();
+
+        [DllImport(LibraryFileName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool retro_serialize(IntPtr data, IntPtr size);
+
+        [DllImport(LibraryFileName, CallingConvention = CallingConvention.Cdecl)]
+        public static extern bool retro_unserialize(IntPtr data, IntPtr size);
     }
 }
